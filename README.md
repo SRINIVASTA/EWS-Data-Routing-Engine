@@ -1,5 +1,5 @@
 
-"""# National EWS Data Routing & Verification Engine 🛡️
+## National EWS Data Routing & Verification Engine 🛡️
 
 An unbribable, real-time data orchestration platform designed to automate eligibility validation for India's **Economically Weaker Sections (EWS)** quota system. This repository replaces vulnerable, manual, paper-based income certificate submissions with automated, cross-registry telemetry and zero-knowledge data pipelines.
 
