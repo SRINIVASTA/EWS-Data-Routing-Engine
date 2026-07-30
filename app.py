@@ -101,4 +101,4 @@ else:
 
     # Preview Database Rows
     st.subheader("📋 Registry Raw Database Preview (Anonymized View)")
-    st.dataframe(df.drop(columns=['True_Segment']).head(15), use_container_width=True)
+    st.dataframe(df.drop(columns=['True_Segment']), use_container_width=True)
