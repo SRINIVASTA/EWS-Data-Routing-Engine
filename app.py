@@ -57,12 +57,12 @@ else:
     st.header("📈 1,000 Profile Database Distribution Analytics")
     st.write("Processing simulated cross-registry batch dataset to map risk patterns and flag potential evasion trends.")
     
-    # Generate bulk data for batch analysis
+    # Generate bulk data for batch analysis using st.session_state to avoid losing data on click
     if 'bulk_data' not in st.session_state:
         with st.spinner("Generating 1,000 synthetic database profiles..."):
             st.session_state.bulk_data = generate_bulk_dataset(1000)
             
-            # Apply evaluation engine logic to each row for batch analysis
+            # Run engine evaluations on all 1,000 rows
             eval_results = []
             for _, row in st.session_state.bulk_data.iterrows():
                 eval_res = engine.evaluate_applicant(row, row['Pincode_Tier'])
@@ -73,17 +73,16 @@ else:
 
     df = st.session_state.bulk_data
 
-    # Metric Row
+    # Main Executive Metrics Bar
     m1, m2, m3 = st.columns(3)
-    m1.metric("Total Applications Evaluated", len(df))
-    m2.metric("Flagged for Audit (Potential Evasions)", len(df[df['Status'] == 'FLAGGED_FOR_AUDIT']))
-    m3.metric("Passed Verification Clearances", len(df[df['Status'] == 'ELIGIBLE']))
+    m1.metric("Total Applications Evaluated", f"{len(df)} Rows")
+    m2.metric("Passed Verification Clearances (In EWS)", f"{len(df[df['Status'] == 'ELIGIBLE'])} Rows")
+    m3.metric("Flagged for Audit (Above EWS / Fraud Risk)", f"{len(df[df['Status'] != 'ELIGIBLE'])} Rows")
 
-    # Visual Layout
+    # Interactive Dashboard Charts
     col_chart1, col_chart2 = st.columns(2)
     
     with col_chart1:
-        # Chart 1: Core segments vs Risk Evaluation Matrix
         fig1 = px.histogram(df, x="True_Segment", color="Status", barmode="group",
                             title="System Decision Accuracy vs True Profile Persona",
                             labels={"True_Segment": "Synthetic Profile Demographic Group", "count": "Application Count"},
@@ -91,7 +90,6 @@ else:
         st.plotly_chart(fig1, use_container_width=True)
 
     with col_chart2:
-        # Chart 2: Scatter plot highlighting the hidden digital volume anomaly
         fig2 = px.scatter(df, x="Reported_Income_INR", y="UPI_Transaction_Volume_INR", color="Status",
                           size="Annual_Utility_Bills_INR", hover_data=["Applicant_ID"],
                           title="Anomaly Detection: Reported Income vs UPI Velocity Profile",
@@ -99,6 +97,34 @@ else:
                           color_discrete_map={"ELIGIBLE": "#2ecc71", "MANUAL_REVIEW_REQUIRED": "#f1c40f", "FLAGGED_FOR_AUDIT": "#e74c3c"})
         st.plotly_chart(fig2, use_container_width=True)
 
-    # Preview Database Rows
-    st.subheader("📋 Registry Raw Database Preview (Anonymized View)")
-    st.dataframe(df.drop(columns=['True_Segment']), use_container_width=True)
+    # Database Segmentation View
+    st.subheader("📋 Registry Database Classification System")
+    
+    # Filter the data subsets cleanly
+    ews_approved_df = df[df['Status'] == 'ELIGIBLE']
+    above_ews_df = df[df['Status'].isin(['FLAGGED_FOR_AUDIT', 'MANUAL_REVIEW_REQUIRED'])]
+
+    # Setup the 3-tab layout interface
+    tab1, tab2, tab3 = st.tabs([
+        f"🌐 Full Master Database ({len(df)} Rows)",
+        f"✅ Approved EWS Beneficiaries ({len(ews_approved_df)} Rows)", 
+        f"🚫 Above EWS Threshold / Flagged ({len(above_ews_df)} Rows)"
+    ])
+    
+    with tab1:
+        st.write("Complete un-filtered 1,000 row log containing all applicants submitted into the platform.")
+        csv_full = df.drop(columns=['True_Segment']).to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Full Master Database (CSV)", csv_full, "full_master_database.csv", "text/csv")
+        st.dataframe(df.drop(columns=['True_Segment']), use_container_width=True)
+        
+    with tab2:
+        st.write("This list isolates applicants whose cross-registry data matches genuine low-income profiles (In EWS).")
+        csv_eligible = ews_approved_df.drop(columns=['True_Segment']).to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Approved EWS List (CSV)", csv_eligible, "approved_ews_beneficiaries.csv", "text/csv")
+        st.dataframe(ews_approved_df.drop(columns=['True_Segment']), use_container_width=True)
+        
+    with tab3:
+        st.write("This list isolates applicants whose reported income exceeds limits or whose transaction velocities mark them as evaders (Above EWS).")
+        csv_flagged = above_ews_df.drop(columns=['True_Segment']).to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Above EWS List (CSV)", csv_flagged, "above_ews_flagged_list.csv", "text/csv")
+        st.dataframe(above_ews_df.drop(columns=['True_Segment']), use_container_width=True)
