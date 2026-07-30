@@ -14,10 +14,9 @@ The platform operates across a decentralized infrastructure model designed to sy
 3. **Ancestral Inheritance Mapping Logic:** Programmatically breaks down undivided generational land assets. It calculates an applicant’s virtual inherited share from deceased or living grandparents to counter structural asset loopholes.
 4. **Dynamic Purchasing Power Parity (PPP) Tiering:** Standardizes structural financial thresholds by applying custom multi-weights across Tier-1, Tier-2, and Tier-3 geographic classifications.
 
-### 🛠️ Repository File Layout
+## 🛠️ Repository File Layout
 
-text
-
+```text
 EWS-Data-Routing-Engine/
 │
 ├── .github/
@@ -31,7 +30,7 @@ EWS-Data-Routing-Engine/
 ├── requirements.txt            # Python environment third-party dependencies
 └── README.md                   # System documentation (This File)
 
-Use code with caution.
+```Use code with caution.
 
 ### 📥 Local Installation & Boot Routine
 
