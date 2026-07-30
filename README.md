@@ -3,7 +3,8 @@
 
 An unbribable, real-time data orchestration platform designed to automate eligibility validation for India's **Economically Weaker Sections (EWS)** quota system. This repository replaces vulnerable, manual, paper-based income certificate submissions with automated, cross-registry telemetry and zero-knowledge data pipelines.
 
-**Created by:** Srinivasa
+**Created by:** Srinivasta
+
 **Application Framework:** [Streamlit Web Architecture](https://ews-data-routing-engine-njoacu4juefmksb8ynpcew.streamlit.app/)
 
 ---
