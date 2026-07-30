@@ -12,7 +12,7 @@ st.write("Real-time zero-knowledge verification framework leveraging cross-regis
 # Initialize Engine
 engine = EWSDecisionEngine()
 
-# Sidebar Configuration - Updated to 3 modes
+# Sidebar Configuration - 3 modes
 st.sidebar.header("System Controls")
 app_mode = st.sidebar.radio(
     "Select View Mode", 
@@ -46,8 +46,11 @@ if app_mode == "Single Applicant Audit":
                 st.error(f"Status: {evaluation['Status']}")
                 
             st.metric("Calculated System Risk Score", f"{evaluation['Risk_Score']}%")
-            st.metric("Computed Total Land Holding (Inc. Ancestral Share)", f"{evaluation['Effective_Land_Acres']} Acres")
-            st.metric("PPP Adjusted Income Limit for this Location", f"₹ {evaluation['Adjusted_Income_Threshold']:,.2f}")
+            st.metric("Total Land Holding (Inc. Ancestral Farmland)", f"{evaluation['Effective_Land_Acres']} Acres")
+            st.metric("PPP Adjusted Income Limit", f"₹ {evaluation['Adjusted_Income_Threshold']:,.2f}")
+
+        if evaluation['Effective_Land_Acres'] > 5.0:
+            st.error(f"⚠️ LAND BREACH DETECTED: This applicant possesses {evaluation['Effective_Land_Acres']} acres of total land, exceeding the statutory 5-acre agricultural cap.")
 
         metrics_df = pd.DataFrame({
             "Metrics": ["Reported Income", "UPI Volume", "Lifestyle Spending Metrics"],
@@ -71,7 +74,8 @@ elif app_mode == "1,000 Profile Database Analytics":
             
             eval_results = []
             for _, row in st.session_state.bulk_data.iterrows():
-                eval_res = engine.evaluate_applicant(row, row['Pincode_Tier'])
+                tier = row.get('Pincode_Tier', 'Tier-2')
+                eval_res = engine.evaluate_applicant(row, tier)
                 eval_results.append(eval_res)
                 
             eval_df = pd.DataFrame(eval_results)
@@ -79,13 +83,13 @@ elif app_mode == "1,000 Profile Database Analytics":
 
     df = st.session_state.bulk_data
 
-    # Main Metrics Bar
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Total Applications Evaluated", f"{len(df)} Rows")
-    m2.metric("Passed Verification Clearances (In EWS)", f"{len(df[df['Status'] == 'ELIGIBLE'])} Rows")
-    m3.metric("Flagged for Audit (Above EWS / Fraud Risk)", f"{len(df[df['Status'] != 'ELIGIBLE'])} Rows")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Evaluated", f"{len(df)} Rows")
+    m2.metric("Passed In EWS", f"{len(df[df['Status'] == 'ELIGIBLE'])} Rows")
+    m3.metric("Above EWS / Flagged", f"{len(df[df['Status'] != 'ELIGIBLE'])} Rows")
+    land_breaches = len(df[df['Effective_Land_Acres'] > 5.0])
+    m4.metric("Farmland Cap Breaches (>5 Acres)", f"{land_breaches} Rows", delta="-Critical Indicator", delta_color="inverse")
 
-    # Interactive Dashboard Charts
     col_chart1, col_chart2 = st.columns(2)
     with col_chart1:
         fig1 = px.histogram(df, x="True_Segment", color="Status", barmode="group",
@@ -94,13 +98,14 @@ elif app_mode == "1,000 Profile Database Analytics":
         st.plotly_chart(fig1, use_container_width=True)
 
     with col_chart2:
-        fig2 = px.scatter(df, x="Reported_Income_INR", y="UPI_Transaction_Volume_INR", color="Status",
-                          size="Annual_Utility_Bills_INR", hover_data=["Applicant_ID"],
-                          title="Anomaly Detection: Reported Income vs UPI Velocity Profile",
+        fig2 = px.scatter(df, x="Reported_Income_INR", y="Effective_Land_Acres", color="Status",
+                          size="Grandfather_Land_Acres", hover_data=["Applicant_ID"],
+                          title="Land Ownership Scatter: Reported Income vs Total Effective Land Acres",
+                          labels={"Reported_Income_INR": "Self-Reported Income", "Effective_Land_Acres": "Calculated Total Acres"},
                           color_discrete_map={"ELIGIBLE": "#2ecc71", "MANUAL_REVIEW_REQUIRED": "#f1c40f", "FLAGGED_FOR_AUDIT": "#e74c3c"})
+        fig2.add_hline(y=5.0, line_dash="dash", line_color="red", annotation_text="Legal 5-Acre Limit")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # Database Segmentation Tabs
     st.subheader("📋 Registry Database Classification System")
     ews_approved_df = df[df['Status'] == 'ELIGIBLE']
     above_ews_df = df[df['Status'].isin(['FLAGGED_FOR_AUDIT', 'MANUAL_REVIEW_REQUIRED'])]
@@ -123,22 +128,20 @@ elif app_mode == "1,000 Profile Database Analytics":
         csv_flagged = above_ews_df.drop(columns=['True_Segment']).to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download Above EWS List (CSV)", csv_flagged, "above_ews_flagged_list.csv", "text/csv")
         st.dataframe(above_ews_df.drop(columns=['True_Segment']), use_container_width=True)
-
 # ----------------------------------------------------
-# MODE 3: UPLOAD APPLICATION FILE (.CSV)
+# MODE 3: UPLOAD APPLICATION FILE (.CSV) - WITH PLOTLY
 # ----------------------------------------------------
 else:
     st.header("📤 Custom File Batch Processing Portal")
     st.write("Upload a custom `.csv` applicant batch table to check records against cross-registry validation logic.")
     
-    # Template instruction guide for the administrator
     with st.expander("🛠️ View Required CSV Column Schema Guidelines"):
         st.code(
             "Applicant_ID, Reported_Income_INR, UPI_Transaction_Volume_INR, "
             "Annual_Utility_Bills_INR, Nuclear_Property_SqFt, Grandfather_Land_Acres, "
             "Grandfather_Living_Status, Father_Siblings_Count, Pincode_Tier"
         )
-        st.info("💡 Note: You can upload the 'synthetic_ews_registry_data.csv' file generated by mock_data.py to test this feature instantly!")
+        st.info("ℹ️ The platform processes the 'Grandfather_Land_Acres' field dynamically using systemic inheritance rules to verify agricultural land limits.")
 
     uploaded_file = st.sidebar.file_uploader("Upload Applicant Telemetry File", type=["csv"])
 
@@ -146,10 +149,9 @@ else:
         try:
             uploaded_df = pd.read_csv(uploaded_file)
             
-            # Runtime validation execution loop
+            # Process uploaded data through engine logic
             eval_results = []
             for _, row in uploaded_df.iterrows():
-                # Extract dynamic tier classification safely from column string
                 tier = row.get('Pincode_Tier', 'Tier-2')
                 eval_res = engine.evaluate_applicant(row, tier)
                 eval_results.append(eval_res)
@@ -157,17 +159,39 @@ else:
             processed_eval_df = pd.DataFrame(eval_results)
             final_uploaded_df = pd.concat([uploaded_df, processed_eval_df], axis=1)
             
-            # Operational segmentation filters
             up_ews_approved = final_uploaded_df[final_uploaded_df['Status'] == 'ELIGIBLE']
             up_above_ews = final_uploaded_df[final_uploaded_df['Status'].isin(['FLAGGED_FOR_AUDIT', 'MANUAL_REVIEW_REQUIRED'])]
+            uploaded_land_breaches = len(final_uploaded_df[final_uploaded_df['Effective_Land_Acres'] > 5.0])
             
-            # Visual Executive Analytics Summary cards
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Uploaded Records Found", f"{len(final_uploaded_df)} Rows")
-            c2.metric("Verified Valid Quota Profiles (In EWS)", f"{len(up_ews_approved)} Rows")
-            c3.metric("High-Risk Outliers Found (Above EWS)", f"{len(up_above_ews)} Rows")
+            # Metric Summary Bar
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Uploaded Records", f"{len(final_uploaded_df)} Rows")
+            c2.metric("Verified Valid Pool (In EWS)", f"{len(up_ews_approved)} Rows")
+            c3.metric("High-Risk Outliers (Above EWS)", f"{len(up_above_ews)} Rows")
+            c4.metric("Land Threshold Violations", f"{uploaded_land_breaches} Rows")
             
+            # Analytics Charts for Uploaded File
+            st.subheader("📊 Analytics Charts for Uploaded File")
+            col_up1, col_up2 = st.columns(2)
+            
+            with col_up1:
+                fig_up1 = px.pie(final_uploaded_df, names="Status", 
+                                 title="Status Segmentation Breakdown",
+                                 color="Status",
+                                 color_discrete_map={"ELIGIBLE": "#2ecc71", "MANUAL_REVIEW_REQUIRED": "#f1c40f", "FLAGGED_FOR_AUDIT": "#e74c3c"})
+                st.plotly_chart(fig_up1, use_container_width=True)
+                
+            with col_up2:
+                fig_up2 = px.scatter(final_uploaded_df, x="Reported_Income_INR", y="Effective_Land_Acres", 
+                                     color="Status", hover_data=["Applicant_ID"],
+                                     title="Uploaded Data: Reported Income vs Total Effective Land Acres",
+                                     labels={"Reported_Income_INR": "Self-Reported Income", "Effective_Land_Acres": "Calculated Total Acres"},
+                                     color_discrete_map={"ELIGIBLE": "#2ecc71", "MANUAL_REVIEW_REQUIRED": "#f1c40f", "FLAGGED_FOR_AUDIT": "#e74c3c"})
+                fig_up2.add_hline(y=5.0, line_dash="dash", line_color="red", annotation_text="Legal 5-Acre Limit")
+                st.plotly_chart(fig_up2, use_container_width=True)
+
             # Interactive output layout tabs
+            st.subheader("📋 Uploaded File Segmentation Logs")
             utab1, utab2, utab3 = st.tabs([
                 f"🌐 Processed Dataset ({len(final_uploaded_df)} Rows)",
                 f"✅ Verified EWS Pool ({len(up_ews_approved)} Rows)",
@@ -181,7 +205,7 @@ else:
             with utab3:
                 st.dataframe(up_above_ews, use_container_width=True)
                 
-            st.success("🎉 Batch processing routine executed successfully!")
+            st.success("🎉 Batch processing routine and visualizations generated successfully!")
             
         except Exception as e:
             st.error(f"❌ Structural Parsing Error: Please verify your columns match requirements. Technical details: {e}")
