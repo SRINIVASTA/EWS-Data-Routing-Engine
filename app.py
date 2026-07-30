@@ -1,6 +1,11 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 from mock_data import generate_synthetic_profile, generate_bulk_dataset
 from engine import EWSDecisionEngine
 
@@ -11,6 +16,59 @@ st.write("Real-time zero-knowledge verification framework leveraging cross-regis
 
 # Initialize Engine
 engine = EWSDecisionEngine()
+
+# Helper function to generate PDF certificate on the fly
+def generate_pdf_certificate(row):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=20, leading=24, textColor=colors.HexColor('#1A365D'), alignment=1)
+    subtitle_style = ParagraphStyle('SubTitleStyle', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#4A5568'), alignment=1)
+    section_heading = ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontSize=14, leading=18, textColor=colors.HexColor('#2B6CB0'), spaceBefore=12, spaceAfter=6)
+    body_style = ParagraphStyle('BodyStyle', parent=styles['Normal'], fontSize=11, leading=16, textColor=colors.HexColor('#2D3748'))
+    
+    # Header Elements
+    story.append(Paragraph("GOVERNMENT OF INDIA", title_style))
+    story.append(Paragraph("NATIONAL EWS VERIFICATION & DATA ROUTING AUTHORITY", subtitle_style))
+    story.append(Spacer(1, 15))
+    
+    # Status Flag Box styling
+    status = str(row['Status'])
+    status_color = '#2ECC71' if status == 'ELIGIBLE' else '#F1C40F' if status == 'MANUAL_REVIEW_REQUIRED' else '#E74C3C'
+    status_text = f"<font color='{status_color}'><b>{status}</b></font>"
+    
+    story.append(Paragraph("INCOME & ASSET VERIFICATION REPORT", section_heading))
+    story.append(Spacer(1, 5))
+    
+    # Key Value Array Setup
+    data = [
+        [Paragraph("<b>Applicant Unique ID:</b>", body_style), Paragraph(str(row['Applicant_ID']), body_style)],
+        [Paragraph("<b>Verification System Status:</b>", body_style), Paragraph(status_text, body_style)],
+        [Paragraph("<b>Risk System Assessment Score:</b>", body_style), Paragraph(f"{row['Risk_Score']}%", body_style)],
+        [Paragraph("<b>Reported Gross Income (Annual):</b>", body_style), Paragraph(f"INR {row['Reported_Income_INR']:,.2f}", body_style)],
+        [Paragraph("<b>UPI Transaction Volume (12 Mo):</b>", body_style), Paragraph(f"INR {row['UPI_Transaction_Volume_INR']:,.2f}", body_style)],
+        [Paragraph("<b>Annual Utility Footprint:</b>", body_style), Paragraph(f"INR {row['Annual_Utility_Bills_INR']:,.2f}", body_style)],
+        [Paragraph("<b>Total Evaluated Farmland:</b>", body_style), Paragraph(f"{row['Effective_Land_Acres']} Acres", body_style)],
+        [Paragraph("<b>Geographic Classification:</b>", body_style), Paragraph(str(row['Pincode_Tier']), body_style)]
+    ]
+    
+    t = Table(data, colWidths=[200, 300])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F7FAFC')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+        ('PADDING', (0,0), (-1,-1), 8),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    story.append(t)
+    
+    story.append(Spacer(1, 25))
+    story.append(Paragraph("<b>Disclaimer:</b> This document is a computer-generated cryptographic verification report synthesized directly via real-time database endpoints. No manual physical signatures are required.", subtitle_style))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 
 # Sidebar Configuration - 3 modes
 st.sidebar.header("System Controls")
@@ -60,7 +118,6 @@ if app_mode == "Single Applicant Audit":
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("💡 Select geometric parameters on the sidebar and click 'Fetch Live Registry Data Pipeline' to test system telemetry.")
-
 # ----------------------------------------------------
 # MODE 2: 1,000 PROFILE DATABASE ANALYTICS
 # ----------------------------------------------------
@@ -101,7 +158,6 @@ elif app_mode == "1,000 Profile Database Analytics":
         fig2 = px.scatter(df, x="Reported_Income_INR", y="Effective_Land_Acres", color="Status",
                           size="Grandfather_Land_Acres", hover_data=["Applicant_ID"],
                           title="Land Ownership Scatter: Reported Income vs Total Effective Land Acres",
-                          labels={"Reported_Income_INR": "Self-Reported Income", "Effective_Land_Acres": "Calculated Total Acres"},
                           color_discrete_map={"ELIGIBLE": "#2ecc71", "MANUAL_REVIEW_REQUIRED": "#f1c40f", "FLAGGED_FOR_AUDIT": "#e74c3c"})
         fig2.add_hline(y=5.0, line_dash="dash", line_color="red", annotation_text="Legal 5-Acre Limit")
         st.plotly_chart(fig2, use_container_width=True)
@@ -129,7 +185,7 @@ elif app_mode == "1,000 Profile Database Analytics":
         st.download_button("📥 Download Above EWS List (CSV)", csv_flagged, "above_ews_flagged_list.csv", "text/csv")
         st.dataframe(above_ews_df.drop(columns=['True_Segment']), use_container_width=True)
 # ----------------------------------------------------
-# MODE 3: UPLOAD APPLICATION FILE (.CSV) - WITH PLOTLY
+# MODE 3: UPLOAD APPLICATION FILE (.CSV) - WITH PLOTLY & PDF
 # ----------------------------------------------------
 else:
     st.header("📤 Custom File Batch Processing Portal")
@@ -170,6 +226,26 @@ else:
             c3.metric("High-Risk Outliers (Above EWS)", f"{len(up_above_ews)} Rows")
             c4.metric("Land Threshold Violations", f"{uploaded_land_breaches} Rows")
             
+            # --- PDF REPORT CERTIFICATE ACTION TOOL BLOCK ---
+            st.subheader("🔏 On-Demand EWS Certificate Generator")
+            col_pdf1, col_pdf2 = st.columns(2)
+            
+            with col_pdf1:
+                target_id = st.selectbox("Select Target Applicant ID", final_uploaded_df['Applicant_ID'].unique())
+            with col_pdf2:
+                target_row = final_uploaded_df[final_uploaded_df['Applicant_ID'] == target_id].iloc[0]
+                pdf_data = generate_pdf_certificate(target_row)
+                
+                st.write("") 
+                st.write("")
+                st.download_button(
+                    label=f"📄 Download Certificate for {target_id} (PDF)",
+                    data=pdf_data,
+                    file_name=f"EWS_Certificate_{target_id}.pdf",
+                    mime="application/pdf"
+                )
+            # -------------------------------------------------
+
             # Analytics Charts for Uploaded File
             st.subheader("📊 Analytics Charts for Uploaded File")
             col_up1, col_up2 = st.columns(2)
