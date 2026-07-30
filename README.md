@@ -89,8 +89,20 @@ The interface provides three operational views via the **System Controls** panel
 * **PDF Auditing:** Generated reports feature a clear structural matrix rendering metadata, calculated effective land holding metrics, and systemic assessment scores for audit-ready documentation.
 """
 
-# Write content to README.md file
-with open("README.md", "w", encoding="utf-8") as f:
-    f.write(readme_content.strip())
 
-print("✅ Success: 'README.md' has been generated automatically in your folder!")
+> ⚠️ **IMPORTANT COPYRIGHT NOTICE**
+> 
+> **All Rights Reserved © 2026 T A Srinivas.**
+> This repository is strictly for portfolio viewing purposes. **DO NOT COPY, CLONE, OR REDISTRIBUTE** this code. Stolen copies or unauthorized forks will be reported immediately for a GitHub copyright takedown.
+
+* **Lead Architect & Developer:** [Srinivasta](https://github.com/SRINIVASTA)
+
+### 🌐 Let’s Connect
+
+- [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/srinivas-t-a-557637119/)  
+- [![Kaggle](https://img.shields.io/badge/Kaggle-20BEFF?style=for-the-badge&logo=kaggle&logoColor=white)](https://www.kaggle.com/srinivasta)  
+- [![Email](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:tasrinivass@gmail.com)  
+- [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/srinivasta)
+- [![Website](https://img.shields.io/badge/Website-000000?style=for-the-badge&logo=website&logoColor=white)](https://srinivasta/github.io)
+
+
